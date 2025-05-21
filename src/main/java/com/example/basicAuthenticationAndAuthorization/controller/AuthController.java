@@ -23,69 +23,93 @@ public class AuthController {
     PasswordEncoder passwordEncoder;
 
     @PostMapping("/addNewSuperAdmin")
-    public String addNewSuperAdmin(@RequestBody UserInfo userInfo) {
+    public ResponseEntity<String> addNewSuperAdmin(@RequestBody UserInfo userInfo) {
         userInfo.setPassword(passwordEncoder.encode(userInfo.getPassword()));
-        return authService.addNewUser(userInfo);
+        String response = authService.addNewUser(userInfo);
+        return ResponseEntity.ok(response);
     }
 
     @PostMapping("/addNewUser")
     @PreAuthorize("hasAuthority('ADMIN') or hasAuthority('USER')")
-    public String addNewUser(@RequestBody UserInfo userInfo, Authentication auth) {
-        // Prevent normal users from creating admins
+    public ResponseEntity<String> addNewUser(@RequestBody UserInfo userInfo, Authentication auth) {
         if (auth.getAuthorities().stream().noneMatch(a -> a.getAuthority().equals("ADMIN")) &&
                 userInfo.getRoles().contains("ADMIN")) {
-            return "Access Denied: USER role cannot create ADMIN users.";
+            return ResponseEntity.status(HttpStatus.FORBIDDEN)
+                    .body("Access Denied: USER role cannot create ADMIN users.");
         }
 
         userInfo.setPassword(passwordEncoder.encode(userInfo.getPassword()));
-        return authService.addNewUser(userInfo);
+        String response = authService.addNewUser(userInfo);
+        return ResponseEntity.ok(response);
     }
 
     @PostMapping("/addNewAdmin")
     @PreAuthorize("hasAuthority('ADMIN')")
-    public String addNewAdmin(@RequestBody UserInfo userInfo) {
+    public ResponseEntity<String> addNewAdmin(@RequestBody UserInfo userInfo) {
         userInfo.setPassword(passwordEncoder.encode(userInfo.getPassword()));
-        return authService.addNewUser(userInfo);
+        String response = authService.addNewUser(userInfo);
+        return ResponseEntity.ok(response);
     }
 
     @GetMapping("/getAllUsers")
     @PreAuthorize("hasAuthority('ADMIN') or hasAuthority('USER')")
-    public List<UserInfo> getAllUsers() {
-        return authService.getAllUserDetails();
+    public ResponseEntity<List<UserInfo>> getAllUsers() {
+        try {
+            List<UserInfo> users = authService.getAllUserDetails();
+            return ResponseEntity.ok(users);
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(null);
+        }
     }
 
     @GetMapping("/getAllAdmins")
     @PreAuthorize("hasAuthority('ADMIN')")
     public ResponseEntity<List<UserInfo>> getAllAdmins() {
-        List<UserInfo> allAdminDetails = authService.getAllAdminDetails();
-        return new ResponseEntity<>(allAdminDetails, HttpStatus.OK);
+        try {
+            List<UserInfo> admins = authService.getAllAdminDetails();
+            return ResponseEntity.ok(admins);
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(null);
+        }
     }
 
     @GetMapping("/getUser/{username}")
     @PreAuthorize("hasAuthority('ADMIN') or hasAuthority('USER')")
-    public UserInfo getUserByName(@PathVariable String username) {
-        return authService.findUserByUsername(username);
+    public ResponseEntity<?> getUserByName(@PathVariable String username) {
+        try {
+            UserInfo user = authService.findUserByUsername(username);
+            return ResponseEntity.ok(user);
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                    .body("User not found: " + e.getMessage());
+        }
     }
 
     @GetMapping("/getAdmin/{username}")
     @PreAuthorize("hasAuthority('ADMIN')")
     public ResponseEntity<?> getAdminByName(@PathVariable String username) {
         try {
-            return new ResponseEntity<>(authService.findAdminByUsername(username), HttpStatus.OK);
+            UserInfo admin = authService.findAdminByUsername(username);
+            return ResponseEntity.ok(admin);
         } catch (Exception e) {
-            return new ResponseEntity<>(e.getMessage(), HttpStatus.INTERNAL_SERVER_ERROR);
+            return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                    .body("Admin not found: " + e.getMessage());
         }
     }
 
     @DeleteMapping("/deleteAdmin/{username}")
     @PreAuthorize("hasAuthority('ADMIN')")
-    public String deleteAdminByName(@PathVariable String username, Authentication auth) {
-        return authService.deleteUserByUsername(username, auth);
+    public ResponseEntity<String> deleteAdminByName(@PathVariable String username, Authentication auth) {
+        String response = authService.deleteUserByUsername(username, auth);
+        return ResponseEntity.ok(response);
     }
 
     @DeleteMapping("/deleteUser/{username}")
     @PreAuthorize("hasAuthority('ADMIN') or hasAuthority('USER')")
-    public String deleteUserByName(@PathVariable String username, Authentication auth) {
-        return authService.deleteUserByUsername(username, auth);
+    public ResponseEntity<String> deleteUserByName(@PathVariable String username, Authentication auth) {
+        String response = authService.deleteUserByUsername(username, auth);
+        return ResponseEntity.ok(response);
     }
 }
